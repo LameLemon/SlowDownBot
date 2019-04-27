@@ -8,17 +8,22 @@ import time
 from requests_toolbelt import MultipartEncoder
 from upload import upload
 import youtube_dl
+from creds import *
 
-reddit = praw.Reddit(client_id='',
-                     client_secret='',
-                     username='',
-                     password='',
+reddit = praw.Reddit(client_id=reddit_id,
+                     client_secret=reddit_secret,
+                     username=reddit_username,
+                     password=reddit_password,
                      user_agent= 'Slows down gifs by /u/PeskyPotato')
 
 
 blacklistSubs = []
 WAIT = 10
 
+'''
+Check if message in inbox was mention and calls checkComments
+and marks the message as read.
+'''
 def scanInbox():
     for message in reddit.inbox.unread(mark_read=False):
         if message.was_comment and '/u/slowdownbot' in reddit.comment(message.id).body.lower():
@@ -26,8 +31,12 @@ def scanInbox():
             checkComments(reddit.comment(message.id))
             reddit.inbox.mark_read([message])
 
+'''
+If comment in subreddit not blacklisted take the speed and calls
+generateReply and comments if reply not blank.
+'''
 def checkComments(comment):
-    print("Checking comments")
+    print("Checking comment")
     commentText = comment.body.lower()
     if checkBlacklistSub(comment.subreddit):
         commentText = commentText[16:].strip()
@@ -44,8 +53,8 @@ def checkComments(comment):
         print(text)
         try:
             if text is not None:
-                # comment.reply(text) 
-                pass
+                comment.reply(text) 
+                # pass # for testing
         except praw.exceptions.APIException as e:
             print(e)
             print("Commenting too much, trying again in 15 minutes")
@@ -58,16 +67,18 @@ def checkBlacklistSub(sub):
     else:
         return False
 
+'''
+Calls downloadGif and slowDown, and creates the comment body 
+for the reply. If any of the calls fail returns None.
+'''
 def generateReply(speed, comment):
-    # Download clip, slow it down, upload to gyfy, reply to comment
-
     comment = reddit.comment(id=comment) 
     submission  = comment.submission
 
     if downloadGif(comment, submission) == 0:
         if slowDown(submission.id, speed) == 0:
-            # gfyname = upload(submission.id)
-            gfyname = "done"
+            gfyname = upload(submission.id)
+            # gfyname = "done" # for testing
 
     if gfyname is not None:
         slow_link = "https://gfycat.com/{}".format(gfyname)
@@ -76,7 +87,10 @@ def generateReply(speed, comment):
         return reply
     return None
 
-
+'''
+gets the downloaded mp4 from temp/ and slowed it down using ffmpeg
+and returns 1 is failed, 0 if successful.
+'''
 def slowDown(sub_id, speed = 0.5):
     print("slowing down")
     try:
@@ -90,7 +104,10 @@ def slowDown(sub_id, speed = 0.5):
         # os.system('rm temp/{}.mp4'.format(str(sub_id)))
         return 0
 
-
+'''
+Downloads the file in mp4 saves to temp/ returns 1 is failed
+0 if successful.
+'''
 def downloadGif(comment, submission):
     # print("downloading gif")
     # Get posted gif link

@@ -1,9 +1,10 @@
 import requests
 import time
 from requests_toolbelt import MultipartEncoder
+from creds import *
 
-client_id = ''
-client_secret = ''
+client_id = gfycat_id
+client_secret = gfycat_secret
 
 def get_token():
     payload = {
@@ -77,6 +78,9 @@ def upload(sub_id):
             print(ticket)
             return None
 
+'''
+Called for testing purposes to check if file uploaded
+'''
 def info(gfyname):
 
         url = "https://api.gfycat.com/v1/gfycats/fetch/status/" + gfyname
