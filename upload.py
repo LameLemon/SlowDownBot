@@ -49,7 +49,8 @@ def upload(sub_id):
         m = MultipartEncoder(fields=files)
 
         r = requests.post(url, data=m, headers={'Content-Type': m.content_type, 'User-Agent': "Slowing down gifs"})
-        print(metadata)
+        print("Metadata", metadata)
+        time.sleep(10)
         url = "https://api.gfycat.com/v1/gfycats/fetch/status/" + metadata["gfyname"]
         headers = {'User-Agent': "Slowing down gifs"}
         print("waiting for encode...", end=" ")
@@ -57,7 +58,8 @@ def upload(sub_id):
         ticket = r.json()
         print("before", ticket)
         time.sleep(15)
-        # Sometimes we have to wait
+
+        # if still encoding
         percentage = 0
         for i in range(457):
             if ticket["task"] == "encoding":
@@ -70,13 +72,18 @@ def upload(sub_id):
                     print(percentage, end=" ")
                 else:
                     break
-        try:
+        # sometimes takes time for the task to start
+        if ticket["task"] == "NotFoundo":
+            time.sleep(20)
+        if ticket["task"] == "error":
+            print("Something wrong", ticket)
+            return None
+        if ticket["task"] == "complete":
             print(ticket["gfyname"])
             return ticket["gfyname"]
-        except KeyError:
-            print("Somethings wrong")
-            print(ticket)
-            return None
+
+        print("something wrong", ticket)
+        return None
 
 '''
 Called for testing purposes to check if file uploaded

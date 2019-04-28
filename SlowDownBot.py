@@ -9,6 +9,7 @@ from requests_toolbelt import MultipartEncoder
 from upload import upload
 import youtube_dl
 from creds import *
+from handlers.dbHandler import *
 
 reddit = praw.Reddit(client_id=reddit_id,
                      client_secret=reddit_secret,
@@ -36,19 +37,22 @@ If comment in subreddit not blacklisted take the speed and calls
 generateReply and comments if reply not blank.
 '''
 def checkComments(comment):
-    print("Checking comment")
+    print("Checking comment", end=" ")
     commentText = comment.body.lower()
     if checkBlacklistSub(comment.subreddit):
-        commentText = commentText[16:].strip()
-        speed = commentText.lower().split('x')[0]
-        if speed[0] == " ":
-            speed = speed.split(" ")[1]
+        try:
+            commentText = commentText[16:].strip()
+            speed = commentText.lower().split('x')[0]
+            if speed[0] == " ":
+                speed = speed.split(" ")[1]
+        except IndexError:
+            print("invalid argument", comment.body.lower())
         try:
             speed = float(speed)
         except ValueError:
             print("invalid speed", speed)
             return 1
-        print("comment seed", speed)
+        print("speed", speed)
         text = generateReply(speed, comment)
         print(text)
         try:
@@ -74,12 +78,16 @@ for the reply. If any of the calls fail returns None.
 def generateReply(speed, comment):
     comment = reddit.comment(id=comment) 
     submission  = comment.submission
-
-    if downloadGif(comment, submission) == 0:
-        if slowDown(submission.id, speed) == 0:
-            gfyname = upload(submission.id)
-            # gfyname = "done" # for testing
-
+    gfyname = getURL(submission.id, speed)
+    if gfyname == None:
+        if downloadGif(comment, submission) == 0:
+            if slowDown(submission.id, speed) == 0:
+                gfyname = upload(submission.id)
+                # gfyname = "done" # for testing
+                if gfyname != None:
+                    dbWrite(submission.id, submission.title, submission.created, submission.author, gfyname, speed)
+    else:
+        print("found", gfyname)
     if gfyname is not None:
         slow_link = "https://gfycat.com/{}".format(gfyname)
         reply = "[Slowed down {}x]({})\n\n----\n\n^[Code](https://github.com/lamelmon) ^| ^[Bugs](https://github.com/lamelemon)".format(speed, slow_link)
@@ -101,7 +109,7 @@ def slowDown(sub_id, speed = 0.5):
     if isinstance(speed, float):
         speed = 1/speed
         os.system('ffmpeg -loglevel panic -hide_banner -y -i temp/{}.mp4 -filter:v "setpts={}*PTS" temp/slow-{}.mp4'.format(str(sub_id), speed, str(sub_id)))
-        # os.system('rm temp/{}.mp4'.format(str(sub_id)))
+        os.system('rm temp/{}.mp4'.format(str(sub_id)))
         return 0
 
 '''
@@ -110,7 +118,6 @@ Downloads the file in mp4 saves to temp/ returns 1 is failed
 '''
 def downloadGif(comment, submission):
     # print("downloading gif")
-    # Get posted gif link
     link = submission.url
     title = submission.title 
 
